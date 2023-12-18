@@ -1,0 +1,99 @@
+var db *gorm.DB
+
+type Book struct {
+	gorm.Model
+	Title    string `json:"title"`
+	Author   string `json:"author"`
+	Genre    string `json:"genre"`
+	Quantity int    `json:"quantity"`
+}
+
+func SetupRouter() *gin.Engine {
+	r := gin.Default()
+
+	r.GET("/books", GetBooks)
+	r.GET("/books/:id", GetBook)
+	r.POST("/books", CreateBook)
+	r.PUT("/books/:id", UpdateBook)
+	r.DELETE("/books/:id", DeleteBook)
+
+	return r
+}
+
+func main() {
+	var err error
+
+	// Connect to SQLite database
+	db, err = gorm.Open(sqlite.Open("books.db"), &gorm.Config{})
+	if err != nil {
+		fmt.Println("Failed to connect to database:", err)
+		return
+	}
+
+	// Auto Migrate the database
+	db.AutoMigrate(&Book{})
+
+	r := SetupRouter()
+
+	// Run the server
+	r.Run(":8080")
+}
+
+func GetBooks(c *gin.Context) {
+	var books []Book
+	db.Find(&books)
+
+	c.JSON(http.StatusOK, gin.H{"data": books})
+}
+
+func GetBook(c *gin.Context) {
+	id := c.Param("id")
+	var book Book
+	if err := db.Where("id = ?", id).First(&book).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": book})
+}
+
+func CreateBook(c *gin.Context) {
+	var input Book
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db.Create(&input)
+
+	c.JSON(http.StatusOK, gin.H{"data": input})
+}
+
+func UpdateBook(c *gin.Context) {
+	id := c.Param("id")
+	var book Book
+	if err := db.Where("id = ?", id).First(&book).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
+		return
+	}
+
+	var input Book
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db.Model(&book).Updates(input)
+
+	c.JSON(http.StatusOK, gin.H{"data": book})
+}
+
+func DeleteBook(c *gin.Context) {
+	id := c.Param("id")
+	if err := db.Where("id = ?", id).Delete(&Book{}).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": "Record deleted successfully"})
+}
