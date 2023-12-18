@@ -1,5 +1,15 @@
-var db *gorm.DB
+package main
 
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+// Book is the model for the books stored in the database
 type Book struct {
 	gorm.Model
 	Title    string `json:"title"`
@@ -8,6 +18,7 @@ type Book struct {
 	Quantity int    `json:"quantity"`
 }
 
+// SetupRouter configures the Gin router with API endpoints
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
@@ -20,25 +31,7 @@ func SetupRouter() *gin.Engine {
 	return r
 }
 
-func main() {
-	var err error
-
-	// Connect to SQLite database
-	db, err = gorm.Open(sqlite.Open("books.db"), &gorm.Config{})
-	if err != nil {
-		fmt.Println("Failed to connect to database:", err)
-		return
-	}
-
-	// Auto Migrate the database
-	db.AutoMigrate(&Book{})
-
-	r := SetupRouter()
-
-	// Run the server
-	r.Run(":8080")
-}
-
+// GetBooks handles the GET request to retrieve all books
 func GetBooks(c *gin.Context) {
 	var books []Book
 	db.Find(&books)
@@ -46,6 +39,7 @@ func GetBooks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": books})
 }
 
+// GetBook handles the GET request to retrieve a specific book by ID
 func GetBook(c *gin.Context) {
 	id := c.Param("id")
 	var book Book
@@ -57,6 +51,7 @@ func GetBook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": book})
 }
 
+// CreateBook handles the POST request to create a new book
 func CreateBook(c *gin.Context) {
 	var input Book
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -69,6 +64,7 @@ func CreateBook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": input})
 }
 
+// UpdateBook handles the PUT request to update a specific book by ID
 func UpdateBook(c *gin.Context) {
 	id := c.Param("id")
 	var book Book
@@ -88,6 +84,7 @@ func UpdateBook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": book})
 }
 
+// DeleteBook handles the DELETE request to delete a specific book by ID
 func DeleteBook(c *gin.Context) {
 	id := c.Param("id")
 	if err := db.Where("id = ?", id).Delete(&Book{}).Error; err != nil {
@@ -96,4 +93,23 @@ func DeleteBook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": "Record deleted successfully"})
+}
+
+func main() {
+	var err error
+
+	// Connect to SQLite database
+	db, err = gorm.Open(sqlite.Open("books.db"), &gorm.Config{})
+	if err != nil {
+		fmt.Println("Failed to connect to database:", err)
+		return
+	}
+
+	// Auto Migrate the database
+	db.AutoMigrate(&Book{})
+
+	r := SetupRouter()
+
+	// Run the server
+	r.Run(":8080")
 }
